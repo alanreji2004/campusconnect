@@ -7,5 +7,6 @@ router.get('/stats', adminController.getStats);
 router.post('/users', adminController.createUser);
 router.post('/users/bulk', adminController.bulkCreateUsers);
 router.post('/promote', adminController.promoteStudents);
+router.get('/users', adminController.listUsers);
 
 module.exports = router;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
@@ -12,7 +12,12 @@ import {
   FileClock,
   FileText,
   ClipboardList,
-  LogOut
+  LogOut,
+  GraduationCap,
+  Briefcase,
+  Building2,
+  Users,
+  ChevronRight
 } from 'lucide-react';
 function classNames(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -27,7 +32,11 @@ export default function Layout() {
     { to: '/reports', label: 'Reports', icon: BarChart3 }
   ];
   if (roles.includes('SUPER_ADMIN') || roles.includes('IT_ADMIN')) {
-    navItems.push({ to: '/admin', label: 'Admin', icon: Shield });
+    navItems.push({ to: '/admin?tab=overview', label: 'Overview', icon: LayoutDashboard });
+    navItems.push({ to: '/admin?tab=users', label: 'All Users', icon: Users });
+    navItems.push({ to: '/admin?tab=departments', label: 'Departments', icon: Building2 });
+    navItems.push({ to: '/admin?tab=add-student', label: 'Add Student', icon: GraduationCap });
+    navItems.push({ to: '/admin?tab=add-staff', label: 'Add Staff', icon: Briefcase });
     navItems.push({ to: '/devices', label: 'Devices', icon: Monitor });
   }
   if (roles.includes('STUDENT')) {
@@ -37,6 +46,8 @@ export default function Layout() {
     navItems.push({ to: '/forms', label: 'Forms & Certs', icon: FileText });
     navItems.push({ to: '/survey', label: 'Activity Survey', icon: ClipboardList });
   }
+  const location = useLocation();
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -46,44 +57,63 @@ export default function Layout() {
       navigate('/login');
     }
   };
+
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <aside className="hidden w-64 flex-shrink-0 border-r border-slate-200 bg-white/80 px-4 py-6 md:block">
-        <div className="mb-8 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-700 shadow-md text-white">
-            <LayoutDashboard size={20} />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-slate-900 tracking-tight">Campus Connect</div>
-            <div className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{primaryRole || 'User'}</div>
+    <div className="flex min-h-screen bg-slate-50/50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white border-r border-slate-200 hidden lg:flex flex-col sticky top-0 h-screen">
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 shadow-lg shadow-primary-200 text-white">
+              <Shield size={24} />
+            </div>
+            <div>
+              <div className="text-lg font-bold text-slate-900 leading-none">Campus</div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mt-1">{primaryRole || 'User'}</div>
+            </div>
           </div>
         </div>
-        <nav className="space-y-1 text-sm">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                classNames(
-                  'group flex items-center gap-3 rounded-lg px-3 py-2.5 font-medium transition-all duration-200',
-                  isActive
-                    ? 'bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-100'
-                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                )
-              }
-            >
-              {({ isActive }) => (
+
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {navItems.map((item) => {
+            const isActive = location.pathname + location.search === item.to ||
+              (item.to === '/admin?tab=overview' && location.pathname === '/admin' && !location.search);
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={
+                  classNames(
+                    'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200',
+                    isActive
+                      ? 'bg-primary-50 text-primary-700 shadow-sm ring-1 ring-primary-100'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  )
+                }
+              >
                 <>
                   <item.icon
                     size={18}
                     className={`transition-colors duration-200 ${isActive ? 'text-primary-600' : 'text-slate-400 group-hover:text-slate-600'}`}
                   />
                   {item.label}
+                  {isActive && <ChevronRight size={14} className="ml-auto opacity-50" />}
                 </>
-              )}
-            </NavLink>
-          ))}
+              </NavLink>
+            );
+          })}
         </nav>
+
+        <div className="p-4 border-t border-slate-100 mt-auto">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut size={18} />
+            Sign Out
+          </button>
+        </div>
       </aside>
       <div className="flex min-h-screen flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white/80 px-4 py-3 shadow-sm">
@@ -105,7 +135,7 @@ export default function Layout() {
             </button>
           </div>
         </header>
-        <main className="flex-1 px-4 py-6 md:px-8">
+        <main className="flex-1">
           <Outlet />
         </main>
         <footer className="border-t border-slate-200 bg-white/60 px-4 py-3 text-xs text-slate-500">

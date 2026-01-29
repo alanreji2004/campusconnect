@@ -33,10 +33,22 @@ const ensureAdmin = (res) => {
 exports.createUser = async (req, res, next) => {
     if (!ensureAdmin(res)) return;
     try {
-        const { email, password, name, role, metadata } = req.body;
+        const { email, name, role, metadata } = req.body;
+        let { password } = req.body;
 
-        if (!email || !password || !role) {
-            return res.status(400).json({ error: 'Email, password, and role are required' });
+        if (!email || !role) {
+            return res.status(400).json({ error: 'Email and role are required' });
+        }
+
+        // Default password logic: Use DOB if provided (format DDMMYYYY)
+        if (!password && metadata?.dob) {
+            // dob format from frontend is YYYY-MM-DD
+            const [y, m, d] = metadata.dob.split('-');
+            password = `${d}${m}${y}`;
+        }
+
+        if (!password) {
+            password = 'Campus@123'; // Ultimate fallback
         }
 
         // 1. Create User in Auth
@@ -45,12 +57,12 @@ exports.createUser = async (req, res, next) => {
             password,
             email_confirm: true,
             user_metadata: { full_name: name, role, ...metadata },
-            app_metadata: { roles: [role] } // Critical for our new structure
+            app_metadata: { roles: [role] }
         });
 
         if (authError) throw authError;
 
-        // 2. Add to public.users (trigger usually does this, but we update roles)
+        // 2. Add to public.users
         const userId = authData.user.id;
         const { error: dbError } = await supabaseAdmin
             .from('users')
@@ -71,7 +83,7 @@ exports.createUser = async (req, res, next) => {
 exports.bulkCreateUsers = async (req, res, next) => {
     if (!ensureAdmin(res)) return;
     try {
-        const { users } = req.body; // Array of { email, password, name, role, metadata }
+        const { users } = req.body;
 
         if (!Array.isArray(users)) {
             return res.status(400).json({ error: 'Users must be an array' });
@@ -81,9 +93,17 @@ exports.bulkCreateUsers = async (req, res, next) => {
 
         for (const user of users) {
             try {
+                let password = user.password;
+
+                // DOB logic for bulk
+                if (!password && user.metadata?.dob) {
+                    const [y, m, d] = user.metadata.dob.split('-');
+                    password = `${d}${m}${y}`;
+                }
+
                 const { error } = await supabaseAdmin.auth.admin.createUser({
                     email: user.email,
-                    password: user.password || 'Campus@123', // Default password if missing
+                    password: password || 'Campus@123',
                     email_confirm: true,
                     user_metadata: { full_name: user.name, role: user.role, ...user.metadata },
                     app_metadata: { roles: [user.role] }
@@ -163,6 +183,32 @@ exports.getStats = async (req, res, next) => {
         if (error) throw error;
 
         res.json({ totalUsers: users.length });
+    } catch (error) {
+        next(error);
+    }
+}
+
+/**
+ * List all users with their metadata
+ */
+exports.listUsers = async (req, res, next) => {
+    if (!ensureAdmin(res)) return;
+    try {
+        const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+        if (error) throw error;
+
+        // Map to a cleaner format for the frontend
+        const formattedUsers = users.map(u => ({
+            id: u.id,
+            email: u.email,
+            name: u.user_metadata?.full_name || 'N/A',
+            role: u.user_metadata?.role || u.app_metadata?.roles?.[0] || 'USER',
+            dept: u.user_metadata?.department || 'N/A',
+            status: u.last_sign_in_at ? 'Active' : 'Inactive',
+            dob: u.user_metadata?.dob || 'N/A'
+        }));
+
+        res.json({ users: formattedUsers });
     } catch (error) {
         next(error);
     }
