@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-import { LayoutDashboard, Users, Building2, GraduationCap, Upload, Plus, UserPlus, Briefcase, Search, Filter, MoreVertical, CheckCircle, XCircle, Shield, Calendar, LogOut, ChevronRight, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, GraduationCap, Upload, Plus, UserPlus, Briefcase, Search, Filter, MoreVertical, CheckCircle, XCircle, Shield, Calendar, LogOut, ChevronRight, BookOpen, Trash2 } from 'lucide-react';
 
 const chartData = [
   { month: 'Jan', users: 120 },
@@ -106,6 +106,7 @@ export default function SuperAdminDashboard() {
     </div>
   );
 }
+
 function OverviewTab({ stats }) {
   return (
     <div className="space-y-6">
@@ -287,14 +288,16 @@ function UsersListTab() {
     </div>
   );
 }
+
 function AddStudentTab({ departments, staffList }) {
   const [view, setView] = useState('depts');
   const [selectedDept, setSelectedDept] = useState(null);
   const [selectedClass, setSelectedClass] = useState(null);
   const [classes, setClasses] = useState([]);
+  const [classStudents, setClassStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    email: '', name: '', dob: '', admissionNo: '', tutor: '', semester: '1', batch: 'A'
+    email: '', name: '', dob: '', admissionNo: ''
   });
 
   const fetchClasses = async (deptCode) => {
@@ -307,6 +310,16 @@ function AddStudentTab({ departments, staffList }) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchClassStudents = async (classId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/classes/${classId}/students`);
+      const data = await res.json();
+      if (data.students) setClassStudents(data.students);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -335,6 +348,35 @@ function AddStudentTab({ departments, staffList }) {
     }
   };
 
+  const handleUpdateTutor = async (tutorId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/classes/${selectedClass.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...selectedClass, tutor_id: tutorId || null })
+      });
+      if (res.ok) {
+        alert('Tutor updated');
+        fetchClasses(selectedDept.code);
+      }
+    } catch (err) {
+      alert('Failed to update tutor');
+    }
+  };
+
+  const handleRemoveStudent = async (studentId, name) => {
+    if (!window.confirm(`Remove ${name} from ${selectedClass.name}?`)) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/admin/classes/students/${studentId}`, { method: 'DELETE' });
+      if (res.ok) {
+        alert('Student removed');
+        fetchClassStudents(selectedClass.id);
+      }
+    } catch (err) {
+      alert('Failed to remove student');
+    }
+  };
+
   const handleAddStudent = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -358,6 +400,7 @@ function AddStudentTab({ departments, staffList }) {
       if (res.ok) {
         alert('Student added successfully');
         setFormData({ ...formData, email: '', name: '', dob: '', admissionNo: '' });
+        fetchClassStudents(selectedClass.id);
       } else {
         const data = await res.json();
         alert('Error: ' + data.error);
@@ -437,7 +480,7 @@ function AddStudentTab({ departments, staffList }) {
             <h3 className="text-lg font-bold text-slate-900">Existing Classes</h3>
             <div className="grid gap-4">
               {classes.map(cls => (
-                <div key={cls.id} onClick={() => { setSelectedClass(cls); setView('management'); }} className="cursor-pointer flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:border-primary-400 transition-all">
+                <div key={cls.id} onClick={() => { setSelectedClass(cls); fetchClassStudents(cls.id); setView('management'); }} className="cursor-pointer flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:border-primary-400 transition-all">
                   <div>
                     <div className="font-bold text-slate-900">{cls.name}</div>
                     <div className="text-xs text-slate-500">Tutor: {cls.tutor?.full_name || 'Not assigned'}</div>
@@ -464,53 +507,72 @@ function AddStudentTab({ departments, staffList }) {
           <span className="font-bold text-slate-900">{selectedClass.name}</span>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="mb-6 text-xl font-bold text-slate-900">Add Student to {selectedClass.name}</h3>
-            <form onSubmit={handleAddStudent} className="space-y-4">
-              <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" placeholder="Full Name" />
-              <input required value={formData.admissionNo} onChange={e => setFormData({ ...formData, admissionNo: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" placeholder="Admission Number" />
-              <input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" placeholder="Email" />
-              <input type="date" required value={formData.dob} onChange={e => setFormData({ ...formData, dob: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
-              <button type="submit" disabled={loading} className="w-full rounded-xl bg-primary-600 py-3 text-sm font-bold text-white hover:bg-primary-700">Add Student</button>
-            </form>
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="col-span-1 space-y-6">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-bold text-slate-900">Class Details</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Assigned Tutor</label>
+                  <select
+                    value={selectedClass.tutor_id || ''}
+                    onChange={(e) => handleUpdateTutor(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none bg-slate-50"
+                  >
+                    <option value="">No Tutor</option>
+                    {staffList.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-bold text-slate-900">Add Student</h3>
+              <form onSubmit={handleAddStudent} className="space-y-4">
+                <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" placeholder="Full Name" />
+                <input required value={formData.admissionNo} onChange={e => setFormData({ ...formData, admissionNo: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" placeholder="Admission Number" />
+                <input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" placeholder="Email" />
+                <input type="date" required value={formData.dob} onChange={e => setFormData({ ...formData, dob: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none" />
+                <button type="submit" disabled={loading} className="w-full rounded-xl bg-primary-600 py-3 text-sm font-bold text-white hover:bg-primary-700">Add Student</button>
+              </form>
+            </div>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-lg font-bold text-slate-900">Bulk Upload</h3>
-            <div className="relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-10 hover:bg-slate-100 transition-all">
-              <Upload className="h-6 w-6 text-primary-600 mb-2" />
-              <p className="text-sm font-medium">Click to upload CSV</p>
-              <input type="file" accept=".csv" className="absolute inset-0 cursor-pointer opacity-0" onChange={(e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (evt) => {
-                  const text = evt.target.result;
-                  const lines = text.split('\n');
-                  const users = [];
-                  lines.forEach(line => {
-                    const [email, name, dob, admissionNo] = line.split(',').map(s => s?.trim());
-                    if (email && email.includes('@')) {
-                      users.push({
-                        email, name, role: 'STUDENT',
-                        metadata: { departmentCode: selectedDept.code, class_id: selectedClass.id, dob: dob || '', semester: selectedClass.semester, admissionNo: admissionNo || '' }
-                      });
-                    }
-                  });
-                  if (users.length > 0) {
-                    if (!window.confirm(`Upload ${users.length} students?`)) return;
-                    try {
-                      await fetch('http://localhost:5000/api/admin/users/bulk', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ users })
-                      });
-                      alert('Upload complete');
-                    } catch (err) { alert(err.message); }
-                  }
-                };
-                reader.readAsText(file);
-              }} />
+
+          <div className="col-span-1 lg:col-span-2 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-slate-900">Enrolled Students ({classStudents.length})</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4 font-semibold">Name</th>
+                    <th className="px-6 py-4 font-semibold">Admission #</th>
+                    <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {classStudents.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-slate-900">{s.name}</div>
+                        <div className="text-xs text-slate-500">{s.email}</div>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs">{s.admission_number}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button onClick={() => handleRemoveStudent(s.id, s.name)} className="text-red-400 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors">
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {classStudents.length === 0 && (
+                    <tr>
+                      <td colSpan="3" className="px-6 py-10 text-center text-slate-400 italic">No students enrolled in this class.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -600,207 +662,92 @@ function AddStaffTab({ departments }) {
   );
 }
 
-function PromoteTab() {
-  const [loading, setLoading] = useState(false);
-  const handlePromote = async () => {
-    if (!window.confirm('Are you sure you want to promote all students? This will increment semester levels for all classes.')) return;
-    setLoading(true);
-    try {
-      const res = await fetch('http://localhost:5000/api/admin/promote', { method: 'POST' });
-      const data = await res.json();
-      alert(`Promotion complete. Promoted Classes: ${data.promotedClasses}, Graduated Students: ${data.graduatedStudents}`);
-    } catch (err) { alert('Failed to promote'); } finally { setLoading(false); }
-  };
-
-  return (
-    <div className="max-w-2xl mx-auto rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-10 text-center">
-      <GraduationCap size={48} className="mx-auto text-amber-600 mb-6" />
-      <h3 className="text-2xl font-bold text-amber-900 mb-4">Semester Promotion</h3>
-      <p className="text-amber-800/80 mb-8 decoration-slate-500">
-        Bulk promote all classes and students. The system will automatically update class names (e.g., S1 to S2) and increment user semesters. Students in S8 will be graduated.
-      </p>
-      <button onClick={handlePromote} disabled={loading} className="w-full rounded-xl bg-amber-600 py-4 text-lg font-bold text-white shadow-lg hover:bg-amber-700 transition-all disabled:opacity-70">
-        {loading ? 'Processing Promotion...' : 'Trigger Global Promotion'}
-      </button>
-    </div>
-  );
-}
 function DepartmentsTab({ departments, onUpdate }) {
-  const [newDept, setNewDept] = useState({ name: '', code: '' });
-  const [isAdding, setIsAdding] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editData, setEditData] = useState({ name: '', code: '' });
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({ name: '', code: '' });
 
-  const handleCreate = async () => {
-    if (!newDept.name || !newDept.code) return alert('Name and Code are required');
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     try {
       const res = await fetch('http://localhost:5000/api/admin/departments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newDept)
+        body: JSON.stringify(formData)
       });
       if (res.ok) {
-        setNewDept({ name: '', code: '' });
-        setIsAdding(false);
         onUpdate();
-      } else {
-        const data = await res.json();
-        alert('Failed to add department: ' + (data.error || 'Unknown error'));
+        setShowForm(false);
+        setFormData({ name: '', code: '' });
       }
     } catch (err) {
-      alert('Failed to add department: ' + err.message);
-    }
-  };
-
-  const handleUpdate = async (id) => {
-    if (!editData.name || !editData.code) return alert('Name and Code are required');
-    if (!window.confirm(`Are you sure you want to update this department?`)) {
-      setEditingId(null);
-      return;
-    }
-    try {
-      const res = await fetch(`http://localhost:5000/api/admin/departments/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editData)
-      });
-      if (res.ok) {
-        setEditingId(null);
-        onUpdate();
-      } else {
-        const data = await res.json();
-        alert('Failed to update department: ' + (data.error || 'Unknown error'));
-      }
-    } catch (err) {
-      alert('Failed to update department: ' + err.message);
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDelete = async (id, name) => {
-    if (!window.confirm(`Are you sure you want to delete the "${name}" department? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete department ${name}? This will remove all linked data.`)) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/admin/departments/${id}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        onUpdate();
-      } else {
-        const data = await res.json();
-        alert('Failed to delete department: ' + (data.error || 'Unknown error'));
-      }
+      await fetch(`http://localhost:5000/api/admin/departments/${id}`, { method: 'DELETE' });
+      onUpdate();
     } catch (err) {
-      alert('Failed to delete department: ' + err.message);
+      console.error(err);
     }
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div>
-          <h3 className="text-xl font-bold text-slate-900">Departments</h3>
-          <p className="text-sm text-slate-500">Manage campus departments and faculties with unique codes</p>
-        </div>
-        <button
-          onClick={() => setIsAdding(!isAdding)}
-          className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 transition-all shadow-sm"
-        >
-          <Plus size={18} /> Add Department
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-xl font-bold text-slate-900">Manage Departments</h3>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-primary-200 transition-all hover:bg-primary-700">
+          <Plus size={18} />
+          {showForm ? 'Cancel' : 'Add Department'}
         </button>
       </div>
 
-      {isAdding && (
-        <div className="mb-8 grid gap-3 sm:grid-cols-3 animate-in fade-in slide-in-from-top-2 duration-200 bg-slate-50 p-4 rounded-xl border border-slate-100">
-          <input
-            type="text"
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none"
-            placeholder="Department Name"
-            value={newDept.name}
-            onChange={e => setNewDept({ ...newDept, name: e.target.value })}
-          />
-          <input
-            type="text"
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-100 outline-none"
-            placeholder="Code"
-            value={newDept.code}
-            onChange={e => setNewDept({ ...newDept, code: e.target.value })}
-          />
-          <div className="flex gap-2">
-            <button onClick={handleCreate} className="flex-1 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 shadow-sm">
-              Save
+      {showForm && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm animate-in fade-in slide-in-from-top-4">
+          <form onSubmit={handleCreate} className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Department Name</label>
+              <input required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-primary-500" placeholder="e.g. Mechanical Engineering" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">Code</label>
+              <input required value={formData.code} onChange={e => setFormData({ ...formData, code: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-primary-500" placeholder="e.g. ME" />
+            </div>
+            <button type="submit" disabled={loading} className="rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-70">
+              {loading ? 'Creating...' : 'Create Department'}
             </button>
-            <button onClick={() => setIsAdding(false)} className="rounded-xl bg-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-300">
-              Cancel
-            </button>
-          </div>
+          </form>
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {departments.map(dept => (
-          <div key={dept.id} className="group relative flex flex-col rounded-2xl border border-slate-100 bg-slate-50/50 p-5 hover:border-primary-200 transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 flex items-center justify-center rounded-2xl bg-white shadow-sm text-primary-600 ring-1 ring-slate-100 group-hover:ring-primary-100 transition-colors">
-                  <Building2 size={24} />
-                </div>
-                {editingId === dept.id ? (
-                  <div className="space-y-2">
-                    <input
-                      autoFocus
-                      className="w-full border-b-2 border-primary-500 bg-transparent text-sm font-bold text-slate-900 focus:outline-none"
-                      value={editData.name}
-                      onChange={e => setEditData({ ...editData, name: e.target.value })}
-                    />
-                    <input
-                      className="w-full border-b-2 border-primary-500 bg-transparent text-xs text-slate-500 focus:outline-none"
-                      value={editData.code}
-                      onChange={e => setEditData({ ...editData, code: e.target.value })}
-                    />
-                    <div className="flex gap-2 pt-1">
-                      <button onClick={() => handleUpdate(dept.id)} className="text-[10px] font-bold text-emerald-600 uppercase">Save</button>
-                      <button onClick={() => setEditingId(null)} className="text-[10px] font-bold text-slate-400 uppercase">Cancel</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="font-bold text-slate-900 flex items-center gap-2">
-                      {dept.name}
-                      <span className="text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500 font-mono">{dept.code}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
+          <div key={dept.id} className="group relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-primary-500 hover:shadow-md transition-all">
+            <button onClick={() => handleDelete(dept.id, dept.name)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors">
+              <XCircle size={18} />
+            </button>
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-slate-50 text-slate-600 flex items-center justify-center mb-4">
+              <Building2 size={32} />
             </div>
-            <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={() => { setEditingId(dept.id); setEditData({ name: dept.name, code: dept.code }); }}
-                className="text-xs font-semibold text-primary-600 hover:text-primary-700"
-              >
-                Edit
-              </button>
-              <span className="text-slate-300">·</span>
-              <button
-                onClick={() => handleDelete(dept.id, dept.name)}
-                className="text-xs font-semibold text-red-600 hover:text-red-700"
-              >
-                Delete
-              </button>
-            </div>
+            <h3 className="font-bold text-slate-900 text-center">{dept.name}</h3>
+            <p className="text-xs text-slate-500 mt-1 uppercase font-semibold text-center">{dept.code}</p>
           </div>
         ))}
-        {departments.length === 0 && (
-          <div className="col-span-full py-10 text-center text-slate-500 italic">
-            No departments found.
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 function ManageRolesTab({ departments }) {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({ userId: '', role: 'HOD', departmentCode: '' });
   const [staff, setStaff] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStaff();
@@ -808,86 +755,107 @@ function ManageRolesTab({ departments }) {
 
   const fetchStaff = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/admin/users');
-      const data = await response.json();
-      if (data.users) {
-        const staffList = data.users.filter(u => u.role !== 'STUDENT' && u.role !== 'SUPER_ADMIN');
-        setStaff(staffList);
-      }
-    } catch (error) {
-      console.error('Failed to fetch staff:', error);
+      const res = await fetch('http://localhost:5000/api/admin/staff');
+      const data = await res.json();
+      setStaff(data.staff || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAssign = async (e) => {
+    e.preventDefault();
+    if (!formData.userId) return alert('Select a staff member');
+    setLoading(true);
+    try {
+      const res = await fetch('http://localhost:5000/api/admin/assign-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      if (res.ok) alert('Role assigned successfully');
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAssignRole = async (userId, role, departmentCode = null) => {
-    if (!window.confirm(`Assign role?`)) return;
+  return (
+    <div className="max-w-2xl mx-auto rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <h3 className="text-xl font-bold text-slate-900 mb-6 text-center">Assign Administrative Roles</h3>
+      <form onSubmit={handleAssign} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Select Staff Member</label>
+          <select value={formData.userId} onChange={e => setFormData({ ...formData, userId: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary-500 bg-slate-50">
+            <option value="">Select Staff</option>
+            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Role</label>
+            <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary-500 bg-slate-50">
+              <option value="HOD">Department Head (HOD)</option>
+              <option value="PRINCIPAL">College Principal</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Target Department</label>
+            <select disabled={formData.role === 'PRINCIPAL'} value={formData.departmentCode} onChange={e => setFormData({ ...formData, departmentCode: e.target.value })} className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-primary-500 bg-slate-50 disabled:opacity-50">
+              <option value="">Select Dept (for HOD)</option>
+              {departments.map(dept => <option key={dept.id} value={dept.code}>{dept.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <button type="submit" disabled={loading} className="w-full rounded-xl bg-slate-900 py-4 text-sm font-bold text-white hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all active:scale-[0.98]">
+          {loading ? 'Processing...' : 'Assign Role & Grant Permissions'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function PromoteTab() {
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState(null);
+
+  const handlePromote = async () => {
+    if (!window.confirm('CRITICAL: This will promote every student to the next semester and graduate S8 students. This cannot be undone. Proceed?')) return;
+    setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/admin/assign-role', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, role, departmentCode })
-      });
-      if (res.ok) {
-        alert('Role assigned successfully!');
-        fetchStaff();
-      } else {
-        const data = await res.json();
-        alert('Error: ' + data.error);
-      }
+      const res = await fetch('http://localhost:5000/api/admin/promote', { method: 'POST' });
+      const data = await res.json();
+      setResults(data);
     } catch (err) {
-      alert('Failed to assign role');
+      alert('Promotion failed: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) return <div className="text-center py-10">Loading staff list...</div>;
-
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-xl font-bold text-slate-900 mb-2">Role Management</h3>
-        <div className="grid gap-6">
-          {staff.map(member => (
-            <div key={member.id} className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-lg">
-                  {member.name.charAt(0)}
-                </div>
-                <div>
-                  <div className="font-bold text-slate-900">{member.name}</div>
-                  <div className="text-sm text-slate-500">{member.email} · {member.dept}</div>
-                  <div className="mt-1">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase ${member.role === 'PRINCIPAL' ? 'bg-purple-100 text-purple-700' :
-                      member.role === 'HOD' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'
-                      }`}>
-                      {member.role}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {departments.map(dept => (
-                  <button
-                    key={dept.id}
-                    onClick={() => handleAssignRole(member.id, 'HOD', dept.code)}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:border-primary-500 hover:text-primary-600 transition-all"
-                  >
-                    HOD ({dept.code})
-                  </button>
-                ))}
-                <button
-                  onClick={() => handleAssignRole(member.id, 'PRINCIPAL')}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-primary-600 text-white hover:bg-primary-700 shadow-sm transition-all"
-                >
-                  Principal
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+    <div className="max-w-3xl mx-auto text-center space-y-8 py-10">
+      <div className="mx-auto h-24 w-24 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-inner">
+        <BookOpen size={48} />
       </div>
+      <div>
+        <h3 className="text-2xl font-bold text-slate-900">Academic Year Promotion</h3>
+        <p className="max-w-md mx-auto text-slate-500 mt-2">
+          Bulk promote all students to the next semester. Students in S8 will be automatically graduated and archived.
+        </p>
+      </div>
+      <button onClick={handlePromote} disabled={loading} className="px-8 py-4 rounded-2xl bg-slate-900 text-white font-bold text-lg shadow-2xl shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-70">
+        {loading ? 'Processing Promotion...' : 'Start Promotion Process'}
+      </button>
+
+      {results && (
+        <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 animate-in fade-in duration-500">
+          <h4 className="font-bold text-lg mb-2">Promotion Successful!</h4>
+          <p className="text-sm">Classes Updated: <span className="font-bold">{results.promotedClasses}</span></p>
+          <p className="text-sm">Students Graduated: <span className="font-bold">{results.graduatedStudents}</span></p>
+        </div>
+      )}
     </div>
   );
 }

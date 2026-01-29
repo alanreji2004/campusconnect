@@ -14,18 +14,18 @@ router.post('/promote', adminController.promoteStudents);
 router.get('/staff', adminController.listStaff);
 
 
-// Departments
 router.get('/departments', adminController.listDepartments);
 router.post('/departments', adminController.createDepartment);
 router.put('/departments/:id', adminController.updateDepartment);
 router.delete('/departments/:id', adminController.deleteDepartment);
 
-// Classes
 router.get('/classes', adminController.listClasses);
 router.post('/classes', adminController.createClass);
+router.get('/classes/:id/students', adminController.getClassStudents);
+router.put('/classes/:id', adminController.updateClass);
 router.delete('/classes/:id', adminController.deleteClass);
+router.delete('/classes/students/:studentId', adminController.removeStudentFromClass);
 
-// Roles
 router.post('/assign-role', adminController.assignRole);
 
 module.exports = router;
