@@ -1,1 +1,80 @@
-import React from 'react';import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';export default function AttendanceView() {  const attendanceData = [    { subject: 'Maths', attendance: 85, total: 20 },    { subject: 'Physics', attendance: 92, total: 18 },    { subject: 'Chemistry', attendance: 78, total: 22 },    { subject: 'English', attendance: 95, total: 15 },    { subject: 'CS', attendance: 98, total: 25 },  ];  return (    <div className="space-y-6">      <div className="mb-4">        <h1 className="text-2xl font-bold text-slate-800">Attendance Overview</h1>        <p className="text-slate-500">Subject-wise breakdown</p>      </div>      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">        <div className="mb-6 h-80">          <ResponsiveContainer width="100%" height="100%">            <BarChart data={attendanceData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>              <CartesianGrid strokeDasharray="3 3" vertical={false} />              <XAxis dataKey="subject" />              <YAxis />              <Tooltip cursor={{ fill: 'transparent' }} />              <Bar dataKey="attendance" fill="#2563eb" radius={[6, 6, 0, 0]} barSize={50} />            </BarChart>          </ResponsiveContainer>        </div>        <div className="grid grid-cols-2 gap-4 border-t border-slate-100 pt-6 md:grid-cols-3 lg:grid-cols-5">          {attendanceData.map((item) => (            <div key={item.subject} className="text-center">              <div className="text-sm font-medium text-slate-500">{item.subject}</div>              <div className="mt-1 text-lg font-bold text-slate-900">{item.attendance}%</div>            </div>          ))}        </div>      </div>    </div>  );}
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+
+export default function AttendanceView() {
+  const { user, roles } = useAuth();
+  const [subjectStats, setSubjectStats] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fallback for non-students (admin view of a specific student? or generic?)
+  // For now, let's implement the student view primarily as requested.
+  const isStudent = roles.includes('STUDENT');
+
+  useEffect(() => {
+    if (isStudent && user?.id) {
+      fetchAttendanceData();
+    } else {
+      setLoading(false); // Not implemented for others yet or use static
+    }
+  }, [user, isStudent]);
+
+  const fetchAttendanceData = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/student/dashboard?studentId=${user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSubjectStats(data.academics?.subjectStats || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mock data for fallback (Admin/Staff viewing generic placeholder)
+  const defaultData = [
+    { name: 'Maths', percentage: 85, total: 20, present: 17, code: 'MAT101' },
+    { name: 'Physics', percentage: 92, total: 18, present: 16, code: 'PHY101' },
+    { name: 'Chemistry', percentage: 78, total: 22, present: 17, code: 'CHE101' },
+    { name: 'English', percentage: 95, total: 15, present: 14, code: 'ENG101' },
+    { name: 'CS', percentage: 98, total: 25, present: 24, code: 'CS101' },
+  ];
+
+  const displayData = isStudent && !loading ? subjectStats : defaultData;
+
+  if (loading) return (
+    <div className="flex h-[60vh] items-center justify-center">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary-600" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500 font-sans">
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-slate-800">Attendance Overview</h1>
+        <p className="text-slate-500">Subject-wise breakdown and performance metrics</p>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          {displayData.map((item, idx) => (
+            <div key={idx} className="text-center p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100/50">
+              <div className="text-sm font-bold text-slate-500 truncate" title={item.name}>{item.name}</div>
+              <div className="mt-1 text-xs font-bold text-slate-400 uppercase tracking-widest">{item.code || 'SUB'}</div>
+              <div className={`mt-2 text-xl font-black ${item.percentage < 75 ? 'text-red-500' : 'text-emerald-600'}`}>
+                {item.total === 0 ? 'N/A' : `${item.percentage}%`}
+              </div>
+              <div className="mt-1 text-xs font-bold text-slate-400">
+                {item.present}/{item.total} Attended
+              </div>
+            </div>
+          ))}
+          {displayData.length === 0 && (
+            <div className="col-span-full text-center text-slate-400 italic py-4">No subject records found.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

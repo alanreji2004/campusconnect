@@ -1,1 +1,106 @@
-import React from 'react';export default function ClassSchedules() {    const schedule = [        { time: '09:00 AM', mon: 'CS101', tue: 'MATH202', wed: 'CS101', thu: 'PHY101', fri: 'LAB' },        { time: '10:00 AM', mon: 'CS101', tue: 'Start Up', wed: 'CS101', thu: 'PHY101', fri: 'LAB' },        { time: '11:00 AM', mon: 'ENG101', tue: 'HIS101', wed: 'MATH202', thu: 'Free', fri: 'Mentoring' },        { time: '12:00 PM', mon: 'Lunch', tue: 'Lunch', wed: 'Lunch', thu: 'Lunch', fri: 'Lunch' },        { time: '01:00 PM', mon: 'PHY101', tue: 'CS Lab', wed: 'Library', thu: 'MATH202', fri: 'Club Activity' },        { time: '02:00 PM', mon: 'PHY101', tue: 'CS Lab', wed: 'Sports', thu: 'Free', fri: 'Club Activity' },    ];    return (        <div className="space-y-6">            <div className="flex items-center justify-between">                <h1 className="text-2xl font-bold text-slate-800">Class Schedule</h1>                <button className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50">                    Download PDF                </button>            </div>            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">                <div className="overflow-x-auto">                    <table className="w-full text-left text-sm text-slate-600">                        <thead className="bg-slate-50 text-xs uppercase text-slate-500">                            <tr>                                <th className="px-6 py-4 font-semibold">Time</th>                                <th className="px-6 py-4 font-semibold">Monday</th>                                <th className="px-6 py-4 font-semibold">Tuesday</th>                                <th className="px-6 py-4 font-semibold">Wednesday</th>                                <th className="px-6 py-4 font-semibold">Thursday</th>                                <th className="px-6 py-4 font-semibold">Friday</th>                            </tr>                        </thead>                        <tbody className="divide-y divide-slate-100">                            {schedule.map((slot, index) => (                                <tr key={index} className="hover:bg-slate-50">                                    <td className="whitespace-nowrap px-6 py-4 font-medium text-slate-900">{slot.time}</td>                                    <td className="px-6 py-4">                                        <span className={`inline-block rounded px-2 py-1 text-xs font-semibold ${slot.mon === 'Lunch' ? 'bg-amber-100 text-amber-700' : 'bg-primary-50 text-primary-700'}`}>                                            {slot.mon}                                        </span>                                    </td>                                    <td className="px-6 py-4">                                        <span className={`inline-block rounded px-2 py-1 text-xs font-semibold ${slot.tue === 'Lunch' ? 'bg-amber-100 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>                                            {slot.tue}                                        </span>                                    </td>                                    <td className="px-6 py-4">                                        <span className={`inline-block rounded px-2 py-1 text-xs font-semibold ${slot.wed === 'Lunch' ? 'bg-amber-100 text-amber-700' : 'bg-purple-50 text-purple-700'}`}>                                            {slot.wed}                                        </span>                                    </td>                                    <td className="px-6 py-4">                                        <span className={`inline-block rounded px-2 py-1 text-xs font-semibold ${slot.thu === 'Lunch' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>                                            {slot.thu}                                        </span>                                    </td>                                    <td className="px-6 py-4">                                        <span className={`inline-block rounded px-2 py-1 text-xs font-semibold ${slot.fri === 'Lunch' ? 'bg-amber-100 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>                                            {slot.fri}                                        </span>                                    </td>                                </tr>                            ))}                        </tbody>                    </table>                </div>            </div>        </div>    );}
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { CalendarDays, Clock, MapPin, User } from 'lucide-react';
+
+export default function ClassSchedules() {
+    const { user } = useAuth();
+    const [timetable, setTimetable] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (user?.id) fetchTimetable();
+    }, [user]);
+
+    const fetchTimetable = async () => {
+        try {
+            const res = await fetch(`http://localhost:5000/api/student/timetable?studentId=${user.id}`);
+            if (res.ok) {
+                const data = await res.json();
+                setTimetable(data.timetable || []);
+            }
+        } catch (error) {
+            console.error("Failed to load timetable", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+    // Assuming periods 1-6 for now, or determining max period from data
+    const periods = [1, 2, 3, 4, 5, 6];
+
+    const getSlot = (day, period) => {
+        return timetable.find(t => t.day_of_week === day && t.period === period);
+    };
+
+    if (loading) return (
+        <div className="flex h-[60vh] items-center justify-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary-600" />
+        </div>
+    );
+
+    return (
+        <div className="space-y-6 animate-in fade-in duration-500 font-sans">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="h-12 w-12 rounded-2xl bg-primary-100 flex items-center justify-center text-primary-600">
+                    <CalendarDays size={24} />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Weekly Timetable</h1>
+                    <p className="text-slate-500 font-medium">Your class schedule for the semester</p>
+                </div>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-600">
+                        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                            <tr>
+                                <th className="px-6 py-4 font-black tracking-widest text-primary-900/50 w-24">Period</th>
+                                {days.map(day => (
+                                    <th key={day} className="px-6 py-4 font-bold tracking-wider min-w-[160px]">{day}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {periods.map(period => (
+                                <tr key={period} className="group hover:bg-slate-50/50 transition-colors">
+                                    <td className="px-6 py-4 font-black text-slate-300 group-hover:text-primary-300 text-lg">
+                                        P{period}
+                                    </td>
+                                    {days.map(day => {
+                                        const slot = getSlot(day, period);
+                                        return (
+                                            <td key={`${day}-${period}`} className="px-6 py-4 align-top">
+                                                {slot ? (
+                                                    <div className="rounded-lg bg-primary-50/50 border border-primary-100 p-3 hover:bg-primary-50 hover:border-primary-200 transition-all cursor-default">
+                                                        <div className="font-bold text-slate-800 text-sm mb-1">{slot.subject?.name || 'Subject'}</div>
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 uppercase tracking-wider">
+                                                                {slot.subject?.code}
+                                                            </div>
+                                                            {slot.staff?.full_name && (
+                                                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                                                                    <User size={10} />
+                                                                    <span className="truncate max-w-[120px]">{slot.staff.full_name}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="h-full min-h-[80px] rounded-lg border-2 border-dashed border-slate-100 flex items-center justify-center">
+                                                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Free</span>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}

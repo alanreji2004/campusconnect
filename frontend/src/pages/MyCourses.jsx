@@ -1,1 +1,87 @@
-import React from 'react';export default function MyCourses() {    const courses = [        { id: 1, code: 'CS101', name: 'Intro to Computer Science', instructor: 'Prof. Smith', credits: 4, progress: 75, grade: 'A' },        { id: 2, code: 'MATH202', name: 'Linear Algebra', instructor: 'Dr. Johnson', credits: 3, progress: 60, grade: 'B+' },        { id: 3, code: 'PHY101', name: 'Physics I', instructor: 'Dr. Brown', credits: 4, progress: 45, grade: 'A-' },        { id: 4, code: 'ENG101', name: 'English Composition', instructor: 'Ms. Davis', credits: 2, progress: 90, grade: 'A' },        { id: 5, code: 'HIS101', name: 'World History', instructor: 'Mr. Wilson', credits: 3, progress: 30, grade: 'B' },    ];    return (        <div className="space-y-6">            <div className="flex items-center justify-between">                <h1 className="text-2xl font-bold text-slate-800">My Courses</h1>                <span className="text-sm font-medium text-slate-500">Spring 2026</span>            </div>            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">                {courses.map((course) => (                    <div key={course.id} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">                        <div className="mb-4 flex items-start justify-between">                            <div>                                <span className="mb-1 inline-block rounded-full bg-primary-50 px-2 py-1 text-xs font-semibold text-primary-700">                                    {course.code}                                </span>                                <h3 className="text-lg font-semibold text-slate-900">{course.name}</h3>                            </div>                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600">                                {course.credits}                            </div>                        </div>                        <div className="mb-4">                            <p className="text-sm text-slate-500">Instructor: <span className="text-slate-700">{course.instructor}</span></p>                        </div>                        <div className="space-y-2">                            <div className="flex justify-between text-xs font-medium">                                <span className="text-slate-500">Progress</span>                                <span className="text-slate-700">{course.progress}%</span>                            </div>                            <div className="h-2 w-full rounded-full bg-slate-100">                                <div                                    className="h-2 rounded-full bg-primary-600 transition-all duration-500"                                    style={{ width: `${course.progress}%` }}                                />                            </div>                        </div>                    </div>                ))}            </div>        </div>    );}
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { BookOpen, AlertCircle, Clock, GraduationCap } from 'lucide-react';
+
+export default function MyCourses() {
+    const { user } = useAuth();
+    const [courses, setCourses] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        fetchCourses();
+    }, [user]);
+
+    const fetchCourses = async () => {
+        try {
+            if (!user?.id) return;
+            setLoading(true);
+            const res = await fetch(`http://localhost:5000/api/student/courses?studentId=${user.id}`);
+            if (!res.ok) throw new Error('Failed to load courses');
+            const data = await res.json();
+            setCourses(data.courses || []);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) return (
+        <div className="flex h-[60vh] items-center justify-center">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary-600" />
+        </div>
+    );
+
+    return (
+        <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-500 font-sans">
+            <div className="flex items-center gap-3 mb-8">
+                <div className="h-12 w-12 rounded-2xl bg-primary-100 flex items-center justify-center text-primary-600">
+                    <BookOpen size={24} />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">My Coursework</h1>
+                    <p className="text-slate-500 font-medium">Subjects assigned for your current semester</p>
+                </div>
+            </div>
+
+            {error && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-100 flex items-center gap-3">
+                    <AlertCircle size={20} />
+                    <span className="font-bold">{error}</span>
+                </div>
+            )}
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {courses.map(course => (
+                    <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-primary-200 transition-all p-6 group">
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{course.code}</span>
+                            <div className="bg-slate-50 text-slate-600 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-tight group-hover:bg-primary-50 group-hover:text-primary-600 transition-colors">
+                                {course.type || 'Core'}
+                            </div>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 mb-2 leading-tight group-hover:text-primary-700 transition-colors">{course.name}</h3>
+                        <div className="flex items-center gap-4 mt-6 pt-4 border-t border-slate-100">
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                <GraduationCap size={14} className="text-slate-400" />
+                                {course.credits} Credits
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                <Clock size={14} className="text-slate-400" />
+                                {course.hours || '45'} Hours
+                            </div>
+                        </div>
+                    </div>
+                ))}
+
+                {courses.length === 0 && !error && (
+                    <div className="col-span-full py-16 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                        <BookOpen size={48} className="mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-400 font-bold uppercase tracking-widest">No courses found for this semester</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

@@ -1,1 +1,123 @@
-import React from 'react';import { useAuth } from '../../context/AuthContext';export default function StudentDashboard() {  const { user } = useAuth();  const studentInfo = {    department: user?.user_metadata?.department || 'Computer Science',    semester: user?.user_metadata?.semester || '1st Semester',    tutor: user?.user_metadata?.tutor || 'Dr. Alan Reji',    attendance: 92,   };  return (    <div className="space-y-6">      <div className="flex items-center justify-between">        <div>          <h1 className="text-2xl font-bold text-slate-900">Welcome, {user?.user_metadata?.full_name || 'Student'}!</h1>          <p className="text-slate-500">Here is your academic overview</p>        </div>        <div className="text-right">          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">Current Session</div>          <div className="font-medium text-slate-700">Spring 2026</div>        </div>      </div>      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">        {}        <div className="rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 p-6 text-white shadow-lg shadow-blue-200">          <div className="flex items-center justify-between">            <div className="text-blue-100 text-sm font-medium">Total Attendance</div>            <div className="rounded-full bg-white/20 p-2">              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>            </div>          </div>          <div className="mt-4 flex items-baseline">            <span className="text-3xl font-bold">{studentInfo.attendance}%</span>            <span className="ml-2 text-sm text-blue-100">Overall</span>          </div>        </div>        {}        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Department</div>          <div className="mt-2 text-xl font-bold text-slate-900">{studentInfo.department}</div>          <div className="mt-1 text-xs text-slate-400">B.Tech</div>        </div>        {}        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Semester</div>          <div className="mt-2 text-xl font-bold text-slate-900">{studentInfo.semester}</div>          <div className="mt-1 text-xs text-slate-400">Batch 2025-29</div>        </div>        {}        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">Class Tutor</div>          <div className="mt-2 text-xl font-bold text-slate-900">{studentInfo.tutor}</div>          <div className="mt-1 text-xs text-slate-400">Staff ID: FAC001</div>        </div>      </div>      {}      <div className="grid gap-6 md:grid-cols-2">        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">          <h3 className="font-bold text-slate-800 mb-4">Recent Notifications</h3>          <div className="space-y-4">            <div className="flex gap-3 items-start">              <div className="w-2 h-2 mt-2 rounded-full bg-red-500 shrink-0"></div>              <div>                <p className="text-sm font-medium text-slate-800">Exam Schedule Released</p>                <p className="text-xs text-slate-500">End semester exams start from May 15th.</p>              </div>            </div>            <div className="flex gap-3 items-start">              <div className="w-2 h-2 mt-2 rounded-full bg-emerald-500 shrink-0"></div>              <div>                <p className="text-sm font-medium text-slate-800">Assignment Submission</p>                <p className="text-xs text-slate-500">Physics assignment due tomorrow.</p>              </div>            </div>          </div>        </div>      </div>    </div>  );}
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import {
+  Users,
+  Calendar,
+  BookOpen,
+  Clock,
+  TrendingUp,
+  BellRing,
+  Award,
+  GraduationCap
+} from 'lucide-react';
+
+export default function StudentDashboard() {
+  const { user } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [user]);
+
+  const fetchDashboardData = async () => {
+    try {
+      if (!user?.id) return;
+      const res = await fetch(`http://localhost:5000/api/student/dashboard?studentId=${user.id}`);
+      if (res.ok) {
+        const result = await res.json();
+        setData(result);
+      }
+    } catch (err) {
+      console.error("Failed to load dashboard:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex h-[60vh] items-center justify-center">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-primary-600" />
+    </div>
+  );
+
+  const profile = data?.profile || {};
+  const academics = data?.academics || { overallAttendance: 0, subjectStats: [] };
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500 font-sans">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Welcome, {profile.name || user?.user_metadata?.full_name}!</h1>
+          <p className="text-slate-500 font-medium">Your academic performance overview</p>
+        </div>
+        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+          <Calendar size={16} className="text-primary-600" />
+          <div className="text-sm font-bold text-slate-700">
+            {profile.semester ? `Semester ${profile.semester}` : 'Current Session'}
+            <span className="text-slate-300 mx-2">|</span>
+            <span className="text-slate-500 font-normal">{new Date().getFullYear()}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {/* Attendance Card */}
+        <div className="rounded-2xl bg-gradient-to-br from-primary-600 to-indigo-700 p-6 text-white shadow-xl shadow-primary-200 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <TrendingUp size={80} />
+          </div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="text-primary-100 text-xs font-bold uppercase tracking-widest">Attendance</div>
+            <div className="rounded-full bg-white/20 p-2 backdrop-blur-sm">
+              <TrendingUp size={18} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline relative z-10">
+            <span className="text-4xl font-black tracking-tight">{academics.overallAttendance}%</span>
+            <span className="ml-2 text-xs font-bold text-primary-200 uppercase tracking-wide">Aggregate</span>
+          </div>
+          <div className="mt-4 h-1 w-full bg-black/20 rounded-full overflow-hidden">
+            <div className="h-full bg-white/90 rounded-full transition-all duration-1000" style={{ width: `${academics.overallAttendance}%` }} />
+          </div>
+        </div>
+
+        {/* Department Card */}
+        <div className="rounded-2xl bg-white p-6 border border-slate-200 shadow-sm hover:border-primary-200 transition-colors group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-10 w-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-100 transition-colors">
+              <BookOpen size={20} />
+            </div>
+          </div>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Department</div>
+          <div className="mt-1 text-lg font-bold text-slate-900 leading-tight line-clamp-2">{profile.department || 'Not Assigned'}</div>
+          <div className="mt-2 text-[10px] font-bold text-orange-600 bg-orange-50 inline-block px-2 py-1 rounded uppercase tracking-tight">B.Tech</div>
+        </div>
+
+        {/* Semester Card */}
+        <div className="rounded-2xl bg-white p-6 border border-slate-200 shadow-sm hover:border-primary-200 transition-colors group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-10 w-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+              <GraduationCap size={20} />
+            </div>
+          </div>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Semester</div>
+          <div className="mt-1 text-2xl font-black text-slate-900">S{profile.semester || '?'}</div>
+          <div className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-tight">{profile.batch || 'Batch N/A'}</div>
+        </div>
+
+        {/* Tutor Card */}
+        <div className="rounded-2xl bg-white p-6 border border-slate-200 shadow-sm hover:border-primary-200 transition-colors group">
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-10 w-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+              <Users size={20} />
+            </div>
+          </div>
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Class Tutor</div>
+          <div className="mt-1 text-lg font-bold text-slate-900 truncate" title={profile.tutor}>{profile.tutor}</div>
+          <div className="mt-2 text-[10px] font-bold text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded uppercase tracking-tight">Faculty Advisor</div>
+        </div>
+      </div>
+    </div>
+  );
+}

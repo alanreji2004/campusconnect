@@ -100,7 +100,8 @@ export default function Layout() {
 
   if (roles.includes('STUDENT')) {
     navItems.push({ to: '/my-courses', label: 'My Courses', icon: BookOpen });
-    navItems.push({ to: '/schedule', label: 'Class Schedules', icon: CalendarDays });
+    navItems.push({ to: '/schedule', label: 'My Timetable', icon: CalendarDays });
+    // navItems.push({ to: '/attendance', label: 'Attendance', icon: CalendarCheck }); // Removed duplicate
     navItems.push({ to: '/leave', label: 'Leave Applications', icon: FileClock });
     navItems.push({ to: '/forms', label: 'Forms & Certs', icon: FileText });
     navItems.push({ to: '/survey', label: 'Activity Survey', icon: ClipboardList });
